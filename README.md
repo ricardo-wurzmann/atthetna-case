@@ -60,7 +60,7 @@ Resposta:
 atthena-case/
 ├── db/
 │   ├── schema.sql       # CREATE TABLEs
-│   └── seed.sql         # Dados reais MGLU 1T22
+│   └── seed.sql         # Dados reais MGLU 1T22 extraidas manualmente (claude)
 ├── app/
 │   ├── main.py          # FastAPI endpoint
 │   ├── database.py      # Conexão PostgreSQL
