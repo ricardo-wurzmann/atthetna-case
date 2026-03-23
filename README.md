@@ -1,6 +1,7 @@
 # Atthena Case — Financial Query API
 
-API que recebe perguntas em linguagem natural sobre dados financeiros e retorna respostas com rastreabilidade ao documento original.
+API que recebe perguntas em linguagem natural sobre dados financeiros
+e retorna respostas com rastreabilidade ao documento original.
 
 ## Stack
 - **FastAPI** — endpoint REST
@@ -10,16 +11,37 @@ API que recebe perguntas em linguagem natural sobre dados financeiros e retorna 
 ## Setup
 
 ### 1. Banco de dados
+
+Sobe o PostgreSQL via Docker:
 ```bash
-createdb atthena
-psql atthena < db/schema.sql
-psql atthena < db/seed.sql
+docker run --name atthena-postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=atthena \
+  -p 5433:5432 \
+  -d postgres
+```
+
+Cria as tabelas e popula com os dados do ITR MGLU 1T22:
+```bash
+docker exec -i atthena-postgres psql -U postgres atthena < db/schema.sql
+docker exec -i atthena-postgres psql -U postgres atthena < db/seed.sql
 ```
 
 ### 2. Variáveis de ambiente
 ```bash
 cp .env.example .env
 # edite .env com suas credenciais
+```
+
+O `.env` deve ficar assim:
+```
+DB_HOST=localhost
+DB_PORT=5433
+DB_NAME=atthena
+DB_USER=postgres
+DB_PASSWORD=postgres
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 ### 3. Dependências
@@ -33,8 +55,9 @@ cd app
 uvicorn main:app --reload
 ```
 
-## Uso
+Acesse a documentação interativa em `http://127.0.0.1:8000/docs`
 
+## Uso
 ```bash
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
@@ -46,7 +69,7 @@ Resposta:
 {
   "answer": "A receita líquida da Magazine Luiza no 1T22 foi de R$ 8.762.176 mil.",
   "value": 8762176.0,
-  "unit": "BRL_thousands",
+  "unit": "BRL_milhares",
   "source": {
     "document": "MGLU_DF_POR_1T22.pdf",
     "page": 7,
@@ -60,7 +83,7 @@ Resposta:
 atthena-case/
 ├── db/
 │   ├── schema.sql       # CREATE TABLEs
-│   └── seed.sql         # Dados reais MGLU 1T22 extraidas manualmente (claude)
+│   └── seed.sql         # Dados reais MGLU 1T22
 ├── app/
 │   ├── main.py          # FastAPI endpoint
 │   ├── database.py      # Conexão PostgreSQL
@@ -72,11 +95,28 @@ atthena-case/
 
 ## Decisões de design
 
-- **Schema EAV híbrido** — financial_values no estilo Entity-Attribute-Value permite múltiplas empresas e períodos sem mudar o schema
-- **Rastreabilidade via source_locations** — todo valor tem página e seção do documento original
-- **Fórmulas pré-definidas** — métricas calculadas (margem bruta, liquidez) ficam em formulas.py para o LLM nunca alucinar contas
-- **Text-to-SQL** — o LLM só traduz linguagem natural para SQL; os cálculos ficam no banco
+- **Schema EAV híbrido** — `valores_financeiros` no estilo
+  Entity-Attribute-Value permite múltiplas empresas e períodos
+  sem alterar o schema
+- **Rastreabilidade via localizacoes_fonte** — todo valor tem
+  página e seção do documento original
+- **Nota 19 em tabelas especializadas** — `instrumentos_divida`
+  para os números estruturados e `notas_explicativas` para o
+  texto analítico, pois não cabem no modelo EAV padrão
+- **Fórmulas pré-definidas** — métricas calculadas (margem bruta,
+  liquidez) ficam em `formulas.py` para o LLM nunca alucinar contas
+- **Text-to-SQL** — o LLM só traduz linguagem natural para SQL;
+  os cálculos ficam no banco
 
-## Limitação conhecida
+## Limitações conhecidas
 
-O mesmo conceito econômico (ex: Estoques) aparece em demonstrações diferentes com semânticas diferentes — saldo no Balanço vs variação no DFC. Hoje são duas linhas separadas em `metrics`. Um `canonical_metric_id` resolveria isso mas adiciona complexidade desnecessária para o escopo atual.
+1. O mesmo conceito econômico (ex: Estoques) aparece em
+   demonstrações diferentes com semânticas diferentes — saldo
+   no Balanço vs variação no DFC. Hoje são duas linhas separadas
+   em `metricas`. Um `canonical_metrica_id` resolveria isso mas
+   adiciona complexidade desnecessária para o escopo atual.
+
+2. `localizacoes_fonte` está amarrado a um único documento por
+   empresa. Se a mesma empresa publicar uma reapresentação,
+   não há distinção entre versões. Resolvível adicionando
+   `versao` ou hash do arquivo em `fontes`.
