@@ -18,14 +18,19 @@ docker run --name atthena-postgres \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=atthena \
-  -p 5433:5432 \
+  -p 5432:5432 \
   -d postgres
 ```
 
-Cria as tabelas e popula com os dados do ITR MGLU 1T22:
+> **Atenção:** se você tiver o PostgreSQL instalado localmente, a porta 5432 pode estar ocupada.
+> Nesse caso use `-p 5433:5432` e ajuste o `DB_PORT` no `.env` para `5433`.
+
+Copia os arquivos para o container e popula:
 ```bash
-docker exec -i atthena-postgres psql -U postgres atthena < db/schema.sql
-docker exec -i atthena-postgres psql -U postgres atthena < db/seed.sql
+docker cp db/schema.sql atthena-postgres:/schema.sql
+docker cp db/seed.sql atthena-postgres:/seed.sql
+docker exec -i atthena-postgres psql -U postgres atthena -f /schema.sql
+docker exec -i atthena-postgres psql -U postgres atthena -f /seed.sql
 ```
 
 ### 2. Variáveis de ambiente
@@ -37,7 +42,7 @@ cp .env.example .env
 O `.env` deve ficar assim:
 ```
 DB_HOST=localhost
-DB_PORT=5433
+DB_PORT=5432
 DB_NAME=atthena
 DB_USER=postgres
 DB_PASSWORD=postgres
