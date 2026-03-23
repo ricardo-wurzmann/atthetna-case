@@ -1,7 +1,11 @@
 import os
 import anthropic
+from pathlib import Path
+from dotenv import load_dotenv
 from database import run_query
 from formulas import FORMULAS
+
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
