@@ -2,13 +2,15 @@ import os
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+# Procura o .env na raiz do projeto (um nível acima de /app)
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 def get_connection():
     return psycopg2.connect(
         host=os.getenv("DB_HOST", "localhost"),
-        port=os.getenv("DB_PORT", "5433"),
+        port=os.getenv("DB_PORT", "5432"),
         dbname=os.getenv("DB_NAME", "atthena"),
         user=os.getenv("DB_USER", "postgres"),
         password=os.getenv("DB_PASSWORD", ""),
