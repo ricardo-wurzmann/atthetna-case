@@ -14,33 +14,33 @@ Você é um assistente especializado em dados financeiros. Converta perguntas em
 natural para SQL PostgreSQL, usando o schema abaixo.
 
 SCHEMA:
-- companies(id, name, ticker)
-- periods(id, date_start, date_end, period_type, fiscal_year, fiscal_quarter)
-- metrics(id, name, statement_type, level_type, unit, parent_id)
-- sources(id, company_id, document_type, file_name, publication_date)
-- source_locations(id, source_id, page_number, section_name)
-- financial_values(id, company_id, period_id, metric_id, value, consolidation_type, source_location_id)
+- empresas(id, nome, ticker)
+- periodos(id, data_inicio, data_fim, tipo_periodo, ano_fiscal, trimestre_fiscal)
+- metricas(id, nome, tipo_demonstracao, tipo_nivel, unidade, pai_id)
+- fontes(id, empresa_id, tipo_documento, nome_arquivo, data_publicacao)
+- localizacoes_fonte(id, fonte_id, numero_pagina, nome_secao)
+- valores_financeiros(id, empresa_id, periodo_id, metrica_id, valor, tipo_consolidacao, localizacao_fonte_id)
 
 REGRAS:
-1. Sempre inclua sl.page_number e sl.section_name no SELECT para rastreabilidade.
-2. Use consolidation_type = 'consolidado' por padrão, a menos que o usuário peça 'controladora'.
-3. Para períodos trimestrais use fiscal_year e fiscal_quarter. Ex: 1T22 = fiscal_year=2022, fiscal_quarter=1.
+1. Sempre inclua lf.numero_pagina e lf.nome_secao no SELECT para rastreabilidade.
+2. Use tipo_consolidacao = 'consolidado' por padrão, a menos que o usuário peça 'controladora'.
+3. Para períodos trimestrais use ano_fiscal e trimestre_fiscal. Ex: 1T22 = ano_fiscal=2022, trimestre_fiscal=1.
 4. Retorne APENAS o SQL, sem explicações, sem markdown, sem blocos de código.
 5. Nunca faça cálculos complexos — retorne os valores brutos e deixe o Python calcular.
 
 EXEMPLO:
 Pergunta: "Qual a receita líquida da Magazine Luiza no 1T22?"
 SQL:
-SELECT fv.value, m.unit, sl.page_number, sl.section_name
-FROM financial_values fv
-JOIN companies c ON c.id = fv.company_id
-JOIN periods p ON p.id = fv.period_id
-JOIN metrics m ON m.id = fv.metric_id
-JOIN source_locations sl ON sl.id = fv.source_location_id
-WHERE c.ticker = 'MGLU3'
-AND p.fiscal_year = 2022 AND p.fiscal_quarter = 1
-AND m.name = 'Receita líquida de vendas'
-AND fv.consolidation_type = 'consolidado'
+SELECT vf.valor, m.unidade, lf.numero_pagina, lf.nome_secao
+FROM valores_financeiros vf
+JOIN empresas e ON e.id = vf.empresa_id
+JOIN periodos p ON p.id = vf.periodo_id
+JOIN metricas m ON m.id = vf.metrica_id
+JOIN localizacoes_fonte lf ON lf.id = vf.localizacao_fonte_id
+WHERE e.ticker = 'MGLU3'
+AND p.ano_fiscal = 2022 AND p.trimestre_fiscal = 1
+AND m.nome = 'Receita líquida de vendas'
+AND vf.tipo_consolidacao = 'consolidado'
 """
 
 FORMULAS_CONTEXT = f"""
@@ -51,10 +51,9 @@ Exemplo: "margem_bruta"
 """
 
 def format_value(value, unit: str) -> str:
-    """Formata o valor com unidade legível."""
-    if unit == "BRL_thousands":
+    if unit == "BRL_milhares":
         return f"R$ {value:,.0f} mil"
-    if unit == "BRL_per_share":
+    if unit == "BRL_por_acao":
         return f"R$ {value:.3f} por ação"
     return str(value)
 
@@ -111,10 +110,10 @@ def ask_llm(question: str) -> dict:
 
     # Passo 4: formata resposta
     row = rows[0]
-    value = row.get("value")
-    unit = row.get("unit", "BRL_thousands")
-    page = row.get("page_number")
-    section = row.get("section_name")
+    value = row.get("valor")
+    unit = row.get("unidade", "BRL_milhares")
+    page = row.get("numero_pagina")
+    section = row.get("nome_secao")
 
     # Gera resposta em linguagem natural via LLM
     answer_prompt = f"""
